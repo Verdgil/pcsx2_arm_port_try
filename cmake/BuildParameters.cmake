@@ -176,8 +176,12 @@ endif()
 # Architecture bitness detection
 include(TargetArch)
 target_architecture(PCSX2_TARGET_ARCHITECTURES)
-if(${PCSX2_TARGET_ARCHITECTURES} MATCHES "x86_64" OR ${PCSX2_TARGET_ARCHITECTURES} MATCHES "i386")
-	if(${PCSX2_TARGET_ARCHITECTURES} MATCHES "x86_64" AND (CMAKE_BUILD_TYPE MATCHES "Release" OR PACKAGE_MODE))
+if(${PCSX2_TARGET_ARCHITECTURES} MATCHES "x86_64" OR
+        ${PCSX2_TARGET_ARCHITECTURES} MATCHES "i386" OR
+        ${PCSX2_TARGET_ARCHITECTURES} MATCHES "arm")
+	if(${PCSX2_TARGET_ARCHITECTURES} MATCHES "x86_64" AND
+        (CMAKE_BUILD_TYPE MATCHES "Release" OR PACKAGE_MODE) AND
+        NOT ${PCSX2_TARGET_ARCHITECTURES} MATCHES "arm")
 		message(FATAL_ERROR "
         The code for ${PCSX2_TARGET_ARCHITECTURES} support is not ready yet.
         For now compile with -DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake
@@ -190,7 +194,8 @@ else()
 endif()
 
 # Print a clear message that most architectures are not supported
-if(NOT (${PCSX2_TARGET_ARCHITECTURES} MATCHES "i386"))
+if(NOT (${PCSX2_TARGET_ARCHITECTURES} MATCHES "i386") AND
+   NOT (${PCSX2_TARGET_ARCHITECTURES} MATCHES "arm"))
     message(WARNING "
     PCSX2 does not support the ${PCSX2_TARGET_ARCHITECTURES} architecture and has no plans yet to support it.
     It would need a complete rewrite of the core emulator and a lot of time.
@@ -245,6 +250,8 @@ elseif(${PCSX2_TARGET_ARCHITECTURES} MATCHES "x86_64")
     set(_ARCH_64 1)
     set(_M_X86 1)
     set(_M_X86_64 1)
+elseif(${PCSX2_TARGET_ARCHITECTURES} MATCHES "arm")
+    #TODO: Add arm optimization
 else()
     # All but i386 requires -fPIC
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -299,7 +306,11 @@ option(USE_PGO_OPTIMIZE "Enable PGO optimization (use profile)")
 
 # Note1: Builtin strcmp/memcmp was proved to be slower on Mesa than stdlib version.
 # Note2: float operation SSE is impacted by the PCSX2 SSE configuration. In particular, flush to zero denormal.
-set(COMMON_FLAG "-pipe -fvisibility=hidden -pthread -fno-builtin-strcmp -fno-builtin-memcmp -mfpmath=sse")
+if(${PCSX2_TARGET_ARCHITECTURES} MATCHES "i386")
+    set(COMMON_FLAG "-pipe -fvisibility=hidden -pthread -fno-builtin-strcmp -fno-builtin-memcmp -mfpmath=sse")
+elseif(${PCSX2_TARGET_ARCHITECTURES} MATCHES "arm")
+    set(COMMON_FLAG "-pipe -fvisibility=hidden -pthread -fno-builtin-strcmp -fno-builtin-memcmp -mfpu=neon")
+endif()
 
 if(USE_VTUNE)
     set(COMMON_FLAG "${COMMON_FLAG} -DENABLE_VTUNE")
